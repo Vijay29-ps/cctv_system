@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import csv
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -8,109 +7,24 @@ from typing import Any, Dict, List, Optional
 from .io import ensure_dir
 
 
-def _incident_types(snatching_found: bool, fight_weapon_found: bool) -> List[str]:
-    out: List[str] = []
-    if snatching_found:
-        out.append("Snatching")
-    if fight_weapon_found:
-        out.append("Fight/Weapon")
-    return out
-
-
-def _read_fight_snapshots_from_csv(events_csv_path: Optional[str]) -> List[str]:
-    if not events_csv_path:
-        return []
-
-    p = Path(events_csv_path)
-    if not p.exists():
-        return []
-
-    out: List[str] = []
-    with p.open("r", encoding="utf-8", newline="") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            snap = (row.get("snapshot_path") or "").strip()
-            if snap and Path(snap).exists():
-                out.append(snap)
-    return out
-
-
-def _collect_snatching_snapshots(evidence_dir: Optional[str]) -> List[str]:
-    if not evidence_dir:
-        return []
-
-    base = Path(evidence_dir)
-    if not base.exists():
-        return []
-
-    out: List[str] = []
-    preferred = ["full_frame.jpg", "offender.jpg", "victim.jpg", "vehicle.jpg"]
-    for folder in sorted([p for p in base.iterdir() if p.is_dir()]):
-        for name in preferred:
-            fp = folder / name
-            if fp.exists():
-                out.append(str(fp))
-    return out
-
-
-def _collect_fight_snapshots(evidence_dir: Optional[str], events_csv_path: Optional[str]) -> List[str]:
-    from_csv = _read_fight_snapshots_from_csv(events_csv_path)
-    if from_csv:
-        return from_csv
-
-    if not evidence_dir:
-        return []
-    base = Path(evidence_dir)
-    if not base.exists():
-        return []
-    return [str(p) for p in sorted(base.glob("*.jpg"))]
-
-
-def _dedupe(values: List[str]) -> List[str]:
-    seen = set()
-    out: List[str] = []
-    for v in values:
-        if v not in seen:
-            seen.add(v)
-            out.append(v)
-    return out
-
-
 def generate_fir(
     run_id: str,
     camera_id: str,
-    base_output_dir: Path,
-    final_video_path: Path,
-    snatching: Dict[str, Any],
-    fight_weapon: Dict[str, Any],
     incident_found: bool,
+    incident_types: List[str],
+    snatching_score: Any,
+    fight_weapon_score: Any,
+    final_video_path: Path,
+    snapshot_path: Optional[Path],
+    events_csv_path: Optional[Path],
+    summary_csv_path: Optional[Path],
+    out_path: Path,
 ) -> Dict[str, Any]:
-    if not incident_found:
-        return {
-            "generated": False,
-            "reason": "No incident detected",
-            "path": None,
-            "fir_number": None,
-            "snapshot_paths": [],
-        }
+    ensure_dir(out_path.parent)
 
-    fir_dir = ensure_dir(base_output_dir / "fir")
     fir_number = f"AUTO-FIR-{run_id}"
-    fir_path = fir_dir / f"{fir_number}.txt"
-
-    sn_found = bool(snatching.get("incident_found", False))
-    fw_found = bool(fight_weapon.get("incident_found", False))
-    incident_types = _incident_types(sn_found, fw_found)
-
-    sn_shots = _collect_snatching_snapshots(snatching.get("evidence_dir"))
-    fw_shots = _collect_fight_snapshots(
-        fight_weapon.get("evidence_dir"),
-        fight_weapon.get("events_csv_path"),
-    )
-    snapshot_paths = _dedupe(sn_shots + fw_shots)
-
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    incident_type_line = ", ".join(incident_types) if incident_types else "Unknown"
+    incident_type_line = ", ".join(incident_types) if incident_types else "None"
 
     lines = [
         "FIRST INFORMATION REPORT (AUTO-GENERATED CCTV DRAFT)",
@@ -126,27 +40,25 @@ def generate_fir(
         "9. Suspect/Accused: Unknown (identity to be verified from footage)",
         f"10. Nature of Offence: {incident_type_line}",
         "11. Brief Facts of the Case:",
-        (
-            "    CCTV analytics detected suspicious activity consistent with "
-            f"{incident_type_line}. This draft is system-generated and must be "
-            "verified by investigating officer before formal registration."
-        ),
-        "12. Digital Evidence Attached:",
-        f"    - Final Output Video: {final_video_path}",
     ]
 
-    if snapshot_paths:
-        lines.append("    - Snapshot Evidence:")
-        for idx, path in enumerate(snapshot_paths, start=1):
-            lines.append(f"      {idx}. {path}")
+    if incident_found:
+        lines.append(
+            "    CCTV analytics detected suspicious activity. This is an auto-generated draft and requires officer verification."
+        )
     else:
-        lines.append("    - Snapshot Evidence: None found")
+        lines.append("    No cognizable incident detected in this run.")
 
     lines.extend(
         [
+            "12. Digital Evidence Attached:",
+            f"    - Final Output Video: {final_video_path}",
+            f"    - Evidence Snapshot: {snapshot_path if snapshot_path else 'Not available'}",
+            f"    - Events CSV: {events_csv_path if events_csv_path else 'Not available'}",
+            f"    - Summary CSV: {summary_csv_path if summary_csv_path else 'Not available'}",
             "13. Analytics Summary:",
-            f"    - Snatching Detected: {sn_found} (score={snatching.get('score')})",
-            f"    - Fight/Weapon Detected: {fw_found} (score={fight_weapon.get('score')})",
+            f"    - Snatching Score: {snatching_score}",
+            f"    - Fight/Weapon Score: {fight_weapon_score}",
             f"14. System Run ID: {run_id}",
             "15. Action Taken: Immediate review required by control room/police desk.",
             "",
@@ -155,13 +67,9 @@ def generate_fir(
         ]
     )
 
-    fir_path.write_text("\n".join(lines), encoding="utf-8")
-
+    out_path.write_text("\n".join(lines), encoding="utf-8")
     return {
         "generated": True,
-        "path": str(fir_path),
+        "path": str(out_path),
         "fir_number": fir_number,
-        "incident_types": incident_types,
-        "snapshot_paths": snapshot_paths,
-        "final_video_path": str(final_video_path),
     }

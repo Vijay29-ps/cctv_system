@@ -9,7 +9,7 @@ from pipelines.snatching_pipeline import run_snatching
 from pipelines.fight_weapon_pipeline import run_fight_weapon
 from merger.merge_annotator import merge_annotate_video
 from utils.io import ensure_dir
-from utils.fir import generate_fir
+from utils.output_bundle import build_official_outputs
 
 
 def process_video(video_path: str, camera_id: str = "Cam-01 (Default)") -> Dict[str, Any]:
@@ -54,38 +54,21 @@ def process_video(video_path: str, camera_id: str = "Cam-01 (Default)") -> Dict[
         "events_csv_path": fw_res.events_csv_path,
     }
 
-    try:
-        fir_payload = generate_fir(
-            run_id=run_id,
-            camera_id=camera_id,
-            base_output_dir=base,
-            final_video_path=final_path,
-            snatching=snatching_payload,
-            fight_weapon=fight_weapon_payload,
-            incident_found=incident_found,
-        )
-    except Exception as e:
-        fir_payload = {
-            "generated": False,
-            "error": str(e),
-            "path": None,
-            "fir_number": None,
-            "snapshot_paths": [],
-        }
+    outputs_payload = build_official_outputs(
+        run_id=run_id,
+        camera_id=camera_id,
+        base_output_dir=str(base),
+        final_video_path=str(final_path),
+        incident_found=incident_found,
+        snatching=snatching_payload,
+        fight_weapon=fight_weapon_payload,
+    )
 
     return {
         "run_id": run_id,
         "camera_id": camera_id,
         "incident_found": incident_found,
-        "local_final_output": str(final_path),
-        "snatching": snatching_payload,
-        "fight_weapon": fight_weapon_payload,
-        "cdn": {
-            "enabled": False,
-            "response": None,
-            "error": None,
-        },
-        "fir": fir_payload,
+        "outputs": outputs_payload,
     }
 
 

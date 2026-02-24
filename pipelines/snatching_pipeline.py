@@ -1,4 +1,3 @@
-import os
 import cv2
 import numpy as np
 from pathlib import Path
@@ -9,6 +8,7 @@ from roboflow import Roboflow  # type: ignore
 from typing import Optional
 
 from .common import PipelinePaths, PipelineResult
+from utils.config import get_config
 from utils.io import ensure_dir, write_jsonl
 from utils.video import get_video_info, make_writer
 
@@ -25,9 +25,8 @@ def run_snatching(
     RF_CONF = 0.5
     RF_COOLDOWN = 30
 
-    api_key = os.environ.get("ROBOFLOW_API_KEY")
-    if not api_key:
-        raise RuntimeError("ROBOFLOW_API_KEY is missing. Export it or put it in a .env and load it in main.py.")
+    config = get_config(require_roboflow=True)
+    api_key = config.roboflow_api_key
 
     out_dir_path = ensure_dir(Path(out_dir))
     tmp_dir = ensure_dir(out_dir_path / "tmp")

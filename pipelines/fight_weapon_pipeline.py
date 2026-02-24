@@ -1,4 +1,3 @@
-import os
 import cv2
 import time
 import math
@@ -11,6 +10,7 @@ from ultralytics import YOLO
 from huggingface_hub import hf_hub_download
 
 from .common import PipelinePaths, PipelineResult
+from utils.config import get_config
 from utils.io import ensure_dir, write_jsonl
 from utils.video import get_video_info, make_writer
 
@@ -20,18 +20,20 @@ def _download_weapon_model_from_hf() -> str:
     Hugging Face repo: https://huggingface.co/psv12/weapon
     File: "All_weapon .pt"  (NOTE: space before .pt)
     """
-    repo_id = "psv12/weapon"
-    filename = "All_weapon .pt"  # IMPORTANT: exact filename (space before .pt)
-    token = os.getenv("HF_TOKEN")  # only needed if HF repo is private
-    return hf_hub_download(repo_id=repo_id, filename=filename, token=token)
+    config = get_config()
+    return hf_hub_download(
+        repo_id=config.hf_weapon_repo_id,
+        filename=config.hf_weapon_filename,
+        revision=config.hf_weapon_revision,
+        token=config.hf_token,
+    )
 
 
 def run_fight_weapon(video_path: str, out_dir: str) -> PipelineResult:
     # Roboflow hosted fight model (Hosted API)
     ROBOFLOW_MODEL_ID = "fight-9uyg7/1"
-    api_key = os.environ.get("ROBOFLOW_API_KEY")
-    if not api_key:
-        raise RuntimeError("ROBOFLOW_API_KEY is missing. Put it in .env as ROBOFLOW_API_KEY=...")
+    config = get_config(require_roboflow=True)
+    api_key = config.roboflow_api_key
 
     WEAPON_CONF = 0.35
     FIGHT_CONF = 0.4

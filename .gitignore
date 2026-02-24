@@ -21,5 +21,4 @@ myenv/
 .pytest_cache/
 __pycache__/
 uploads/
-.env
 .env.example

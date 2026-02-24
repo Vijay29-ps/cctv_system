@@ -1,0 +1,25 @@
+# ML weights / large binaries
+*.pt
+*.onnx
+*.engine
+*.tflite
+
+# videos / outputs
+*.mp4
+*.avi
+outputs/
+runs/
+
+# Large model weights
+*.pt
+
+*.pt
+models/
+.venv/
+venv/
+myenv/
+.pytest_cache/
+__pycache__/
+uploads/
+.env
+.env.example

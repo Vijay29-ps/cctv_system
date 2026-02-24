@@ -9,7 +9,7 @@ from pipelines.snatching_pipeline import run_snatching
 from pipelines.fight_weapon_pipeline import run_fight_weapon
 from merger.merge_annotator import merge_annotate_video
 from utils.io import ensure_dir
-from utils.cdn_upload import upload_video_to_cdn
+from utils.fir import generate_fir
 
 
 def process_video(video_path: str, camera_id: str = "Cam-01 (Default)") -> Dict[str, Any]:
@@ -40,32 +40,52 @@ def process_video(video_path: str, camera_id: str = "Cam-01 (Default)") -> Dict[
     final_path = (incident_dir / "incident_merged.mp4") if incident_found else (silent_dir / "silent_merged.mp4")
     final_path.write_bytes(merged_out.read_bytes())
 
-    cdn_resp = None
-    cdn_error = None
+    snatching_payload = {
+        "incident_found": sn_res.incident_found,
+        "score": sn_res.incident_score,
+        "metadata": sn_res.metadata,
+        "evidence_dir": sn_res.evidence_dir,
+    }
+    fight_weapon_payload = {
+        "incident_found": fw_res.incident_found,
+        "score": fw_res.incident_score,
+        "metadata": fw_res.metadata,
+        "evidence_dir": fw_res.evidence_dir,
+        "events_csv_path": fw_res.events_csv_path,
+    }
+
     try:
-        cdn_resp = upload_video_to_cdn(str(final_path))
+        fir_payload = generate_fir(
+            run_id=run_id,
+            camera_id=camera_id,
+            base_output_dir=base,
+            final_video_path=final_path,
+            snatching=snatching_payload,
+            fight_weapon=fight_weapon_payload,
+            incident_found=incident_found,
+        )
     except Exception as e:
-        cdn_error = str(e)
+        fir_payload = {
+            "generated": False,
+            "error": str(e),
+            "path": None,
+            "fir_number": None,
+            "snapshot_paths": [],
+        }
 
     return {
         "run_id": run_id,
         "camera_id": camera_id,
         "incident_found": incident_found,
         "local_final_output": str(final_path),
-        "snatching": {
-            "incident_found": sn_res.incident_found,
-            "score": sn_res.incident_score,
-            "metadata": sn_res.metadata,
-        },
-        "fight_weapon": {
-            "incident_found": fw_res.incident_found,
-            "score": fw_res.incident_score,
-            "metadata": fw_res.metadata,
-        },
+        "snatching": snatching_payload,
+        "fight_weapon": fight_weapon_payload,
         "cdn": {
-            "response": cdn_resp,
-            "error": cdn_error,
+            "enabled": False,
+            "response": None,
+            "error": None,
         },
+        "fir": fir_payload,
     }
 
 

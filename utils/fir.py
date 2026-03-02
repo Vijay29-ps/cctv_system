@@ -7,6 +7,39 @@ from typing import Any, Dict, List, Optional
 from .io import ensure_dir
 
 
+def _brief_case_facts(incident_found: bool, incident_types: List[str]) -> str:
+    if not incident_found:
+        return "No cognizable incident detected in this run."
+
+    lower_types = [t.lower() for t in incident_types]
+    has_snatching = any("snatch" in t for t in lower_types)
+    has_fight_weapon = any(("fight" in t) or ("weapon" in t) for t in lower_types)
+
+    if has_snatching and has_fight_weapon:
+        return (
+            "CCTV analytics indicates chain snatching is happening, and a fight/weapon "
+            "confrontation is also taking place. This is an auto-generated draft and "
+            "requires officer verification."
+        )
+    if has_snatching:
+        return (
+            "CCTV analytics indicates chain snatching activity. No fight/weapon activity "
+            "was flagged in this run. This is an auto-generated draft and requires officer "
+            "verification."
+        )
+    if has_fight_weapon:
+        return (
+            "CCTV analytics indicates fight/weapon activity. No snatching activity was "
+            "flagged in this run. This is an auto-generated draft and requires officer "
+            "verification."
+        )
+
+    return (
+        "CCTV analytics detected suspicious activity. This is an auto-generated draft and "
+        "requires officer verification."
+    )
+
+
 def generate_fir(
     run_id: str,
     camera_id: str,
@@ -42,12 +75,7 @@ def generate_fir(
         "11. Brief Facts of the Case:",
     ]
 
-    if incident_found:
-        lines.append(
-            "    CCTV analytics detected suspicious activity. This is an auto-generated draft and requires officer verification."
-        )
-    else:
-        lines.append("    No cognizable incident detected in this run.")
+    lines.append(f"    {_brief_case_facts(incident_found, incident_types)}")
 
     lines.extend(
         [

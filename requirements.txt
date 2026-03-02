@@ -7,10 +7,6 @@ pandas
 opencv-python
 ultralytics
 
-# HTTP + Roboflow
-requests
-roboflow
-
 # Hugging Face model download
 huggingface_hub
 fastapi

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -12,12 +13,14 @@ from .fir import generate_fir
 from .io import ensure_dir
 
 
-def _incident_types(snatching_found: bool, fight_weapon_found: bool) -> List[str]:
+def _incident_types(snatching_found: bool, fight_found: bool, weapon_found: bool) -> List[str]:
     out: List[str] = []
     if snatching_found:
         out.append("Snatching")
-    if fight_weapon_found:
-        out.append("Fight/Weapon")
+    if fight_found:
+        out.append("Fight")
+    if weapon_found:
+        out.append("Weapon")
     return out
 
 
@@ -207,6 +210,7 @@ def write_summary_csv(
     run_id: str,
     camera_id: str,
     incident_found: bool,
+    incident_label: str,
     incident_types: List[str],
     snatching_score: Any,
     fight_weapon_score: Any,
@@ -222,6 +226,7 @@ def write_summary_csv(
         "run_id": run_id,
         "camera_id": camera_id,
         "incident_found": incident_found,
+        "incident_label": incident_label,
         "incident_types": ", ".join(incident_types) if incident_types else "None",
         "snatching_score": snatching_score,
         "fight_weapon_score": fight_weapon_score,
@@ -241,14 +246,54 @@ def write_summary_csv(
     return str(out)
 
 
+def write_summary_json(
+    out_path: str,
+    run_id: str,
+    camera_id: str,
+    incident_found: bool,
+    incident_label: str,
+    incident_types: List[str],
+    snatching_score: Any,
+    fight_weapon_score: Any,
+    final_video_path: str,
+    snapshot_path: str,
+    fir_path: str,
+    summary_csv_path: str,
+    decider: Optional[Dict[str, Any]] = None,
+) -> str:
+    out = Path(out_path)
+    ensure_dir(out.parent)
+
+    payload = {
+        "run_id": run_id,
+        "camera_id": camera_id,
+        "incident_found": incident_found,
+        "incident_label": incident_label,
+        "incident_types": incident_types,
+        "snatching_score": snatching_score,
+        "fight_weapon_score": fight_weapon_score,
+        "video_path": final_video_path,
+        "snapshot_path": snapshot_path,
+        "fir_path": fir_path,
+        "summary_csv_path": summary_csv_path,
+        "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    if decider:
+        payload["decider"] = decider
+    out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return str(out)
+
+
 def build_official_outputs(
     run_id: str,
     camera_id: str,
     base_output_dir: str,
     final_video_path: str,
     incident_found: bool,
+    incident_label: Optional[str],
     snatching: Dict[str, Any],
     fight_weapon: Dict[str, Any],
+    decider: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     base = Path(base_output_dir)
     official_dir = ensure_dir(base / "official")
@@ -269,8 +314,17 @@ def build_official_outputs(
     )
 
     sn_found = bool(snatching.get("incident_found", False))
-    fw_found = bool(fight_weapon.get("incident_found", False))
-    incident_types = _incident_types(sn_found, fw_found)
+    fw_meta = fight_weapon.get("metadata") or {}
+    if "decision_fight_found" in fw_meta or "decision_weapon_found" in fw_meta:
+        fight_found = bool(fw_meta.get("decision_fight_found", False))
+        weapon_found = bool(fw_meta.get("decision_weapon_found", False))
+    else:
+        fight_found = bool((fw_meta.get("fight_events") or 0) > 0)
+        weapon_found = bool((fw_meta.get("weapon_frames") or 0) > 0)
+        # Backward-compatible fallback if older metadata is missing.
+        if not (fight_found or weapon_found):
+            fight_found = bool(fight_weapon.get("incident_found", False))
+    incident_types = _incident_types(sn_found, fight_found, weapon_found)
 
     fir_path = str(official_dir / f"AUTO-FIR-{run_id}.txt")
     generate_fir(
@@ -292,6 +346,7 @@ def build_official_outputs(
         run_id=run_id,
         camera_id=camera_id,
         incident_found=incident_found,
+        incident_label=incident_label or ("INCIDENT" if incident_found else "NO_INCIDENT"),
         incident_types=incident_types,
         snatching_score=snatching.get("score"),
         fight_weapon_score=fight_weapon.get("score"),
@@ -301,8 +356,26 @@ def build_official_outputs(
         events_csv_path=events_csv_str,
     )
 
+    summary_json_path = write_summary_json(
+        out_path=str(official_dir / "result.json"),
+        run_id=run_id,
+        camera_id=camera_id,
+        incident_found=incident_found,
+        incident_label=incident_label or ("INCIDENT" if incident_found else "NO_INCIDENT"),
+        incident_types=incident_types,
+        snatching_score=snatching.get("score"),
+        fight_weapon_score=fight_weapon.get("score"),
+        final_video_path=final_video_path,
+        snapshot_path=snapshot_path,
+        fir_path=fir_path,
+        summary_csv_path=summary_csv_path,
+        decider=decider,
+    )
+
     return {
         "video_path": final_video_path,
+        "json_path": summary_json_path,
+        "csv_path": summary_csv_path,
         "snapshot_path": snapshot_path,
         "fir_path": fir_path,
         "csv_paths": {

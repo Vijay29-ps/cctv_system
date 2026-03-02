@@ -16,6 +16,9 @@ class AppConfig:
     hf_weapon_repo_id: str
     hf_weapon_filename: str
     hf_weapon_revision: str
+    hf_snatching_repo_id: str
+    hf_snatching_filename: str
+    hf_snatching_revision: str
     snatching_min_confirmed_events_for_output: int
     pose_model_name: str
     pose_confidence: float
@@ -45,6 +48,9 @@ def get_config(require_roboflow: bool = False) -> AppConfig:
         hf_weapon_repo_id=os.getenv("HF_WEAPON_REPO_ID", "psv12/weapon"),
         hf_weapon_filename=os.getenv("HF_WEAPON_FILENAME", "All_weapon .pt"),
         hf_weapon_revision=os.getenv("HF_WEAPON_REVISION", "main"),
+        hf_snatching_repo_id=os.getenv("HF_SNATCHING_REPO_ID", "psv12/weapon"),
+        hf_snatching_filename=os.getenv("HF_SNATCHING_FILENAME", "best_model.pt"),
+        hf_snatching_revision=os.getenv("HF_SNATCHING_REVISION", "main"),
         snatching_min_confirmed_events_for_output=min_confirmed,
         pose_model_name=os.getenv("POSE_MODEL_NAME", "yolov8n-pose.pt").strip() or "yolov8n-pose.pt",
         pose_confidence=pose_conf,

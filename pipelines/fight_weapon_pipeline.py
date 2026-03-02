@@ -7,10 +7,10 @@ from pathlib import Path
 from datetime import datetime
 from collections import deque
 from ultralytics import YOLO
-from huggingface_hub import hf_hub_download
 
 from .common import PipelinePaths, PipelineResult
 from utils.config import get_config
+from utils.hf_model import get_weapon_weights_path
 from utils.io import ensure_dir, write_jsonl
 from utils.pose_utils import (
     best_pose_for_box,
@@ -27,12 +27,7 @@ def _download_weapon_model_from_hf() -> str:
     File: "All_weapon .pt"  (NOTE: space before .pt)
     """
     config = get_config()
-    return hf_hub_download(
-        repo_id=config.hf_weapon_repo_id,
-        filename=config.hf_weapon_filename,
-        revision=config.hf_weapon_revision,
-        token=config.hf_token,
-    )
+    return get_weapon_weights_path(config)
 
 
 def run_fight_weapon(video_path: str, out_dir: str) -> PipelineResult:

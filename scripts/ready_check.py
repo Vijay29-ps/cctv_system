@@ -63,13 +63,31 @@ def main() -> int:
     if not snatching_model.is_absolute():
         snatching_model = repo_root / snatching_model
     if mode in {"all", "snatching_only"}:
-        checks.append(_check_file(snatching_model, "Snatching model (.pt)"))
+        if snatching_model.exists():
+            checks.append(_check_file(snatching_model, "Snatching model (.pt)"))
+        else:
+            hf_sn_repo = (os.getenv("HF_SNATCHING_REPO_ID") or "psv12/weapon").strip()
+            hf_sn_file = (os.getenv("HF_SNATCHING_FILENAME") or "best_model.pt").strip()
+            checks.append(
+                (
+                    bool(hf_sn_repo and hf_sn_file),
+                    f"Snatching model via HF fallback ({hf_sn_repo}/{hf_sn_file})",
+                )
+            )
 
     fight_model = Path(os.getenv("FIGHT_MODEL_PATH", r"C:\dataset\fight_detection_best.pt"))
     if not fight_model.is_absolute():
         fight_model = repo_root / fight_model
     if mode in {"all", "fight_weapon_only"}:
         checks.append(_check_file(fight_model, "Fight model (.pt)"))
+        hf_weapon_repo = (os.getenv("HF_WEAPON_REPO_ID") or "psv12/weapon").strip()
+        hf_weapon_file = (os.getenv("HF_WEAPON_FILENAME") or "All_weapon .pt").strip()
+        checks.append(
+            (
+                bool(hf_weapon_repo and hf_weapon_file),
+                f"Weapon model via HF ({hf_weapon_repo}/{hf_weapon_file})",
+            )
+        )
 
     env_file = repo_root / ".env"
     checks.append((env_file.exists(), f".env file exists ({env_file})"))

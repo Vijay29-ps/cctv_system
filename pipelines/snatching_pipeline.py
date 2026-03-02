@@ -9,6 +9,7 @@ from typing import Optional
 
 from .common import PipelinePaths, PipelineResult
 from utils.config import get_config
+from utils.hf_model import get_snatching_weights_path
 from utils.io import ensure_dir, write_jsonl
 from utils.pose_utils import (
     best_pose_for_box,
@@ -48,7 +49,13 @@ def run_snatching(
     pose_conf = config.pose_confidence
     snatching_model_path = Path(config.snatching_model_path)
     if not snatching_model_path.exists():
-        raise RuntimeError(f"SNATCHING_MODEL_PATH does not exist: {snatching_model_path}")
+        try:
+            snatching_model_path = Path(get_snatching_weights_path(config))
+        except Exception as exc:
+            raise RuntimeError(
+                "SNATCHING_MODEL_PATH does not exist and Hugging Face fallback failed: "
+                f"{snatching_model_path} | error={exc}"
+            ) from exc
 
     out_dir_path = ensure_dir(Path(out_dir))
     if evidence_dir:

@@ -10,9 +10,15 @@ Create/update `.env` in repo root:
 
 ```env
 SNATCHING_MODEL_PATH=C:\dataset\best_model.pt
+HF_SNATCHING_REPO_ID=psv12/weapon
+HF_SNATCHING_FILENAME=best_model.pt
+HF_SNATCHING_REVISION=main
 SNATCHING_CLASS_IDS=0
 SNATCHING_CLASS_NAMES=snatching,chain_snatching,snatch,robbery,theft,steal
 FIGHT_MODEL_PATH=C:\dataset\fight_detection_best.pt
+HF_WEAPON_REPO_ID=psv12/weapon
+HF_WEAPON_FILENAME=All_weapon .pt
+HF_WEAPON_REVISION=main
 FIGHT_CLASS_IDS=0
 FIGHT_CLASS_NAMES=fight,violence,violent,assault,attack,aggression
 PIPELINE_MODE=all
